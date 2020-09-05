@@ -12,9 +12,11 @@ const ANDROID_CLIENT_ID = '395723880686-keb4n5r09p65qjobutf9i1e8p4dehg6i.apps.go
 
 const App = () => {
   const [testUrl, setTestUrl] = useState('http://192.168.3.3:3000/mobile/login')
-  const [isLogin, setIsLogin] = useState('logout')
+  // const [isLogin, setIsLogin] = useState('logout')
+  // alert(AsyncStorage.getItem('session'))
   const [session, setSession] = useState(null)
   const [sessionSig, setSessionSig] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const getData = async () => {
@@ -22,14 +24,13 @@ const App = () => {
         const sessions = await AsyncStorage.getItem('session')
         const sessionSigs = await AsyncStorage.getItem('sessionSig')
 
-        if (sessions !== null && sessionSigs !== null) {
+        if (!!sessions && !!sessionSigs) {
           setSession(sessions)
           setSessionSig(sessionSigs)
-          setIsLogin('login')
-          setTestUrl('http://192.168.3.3:3000/mobile/login')
+          setIsLoading(false)
+
+          setTestUrl('http://192.168.3.3:3000/mobile')
         } else {
-          alert('se' + sessions + ' ' + sessionSigs)
-          setIsLogin('logout')
           setTestUrl('http://192.168.3.3:3000/mobile/login')
         }
       } catch (e) {
@@ -43,11 +44,11 @@ const App = () => {
   const signInWithGoogle = async () => {
     const { type, accessToken, user } = await Google.logInAsync({
       androidClientId: ANDROID_CLIENT_ID
-    });
-    alert(type)
+    })
     if (type === 'success') {
-      let u = await fetch("http://192.168.3.3:3000/api/mobile/auth/mobile-login", {
-        method: "POST",
+      alert('user' + user)
+      const u = await fetch('http://192.168.3.3:3000/api/mobile/auth/mobile-login', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           {
@@ -57,7 +58,6 @@ const App = () => {
         )
       })
         .then((response) => response.json())
-      alert(u.session)
       if (u) {
         try {
           await Promise.all([
@@ -66,16 +66,13 @@ const App = () => {
             AsyncStorage.setItem('session', u.session),
             AsyncStorage.setItem('sessionSig', u.sessionSig)
           ])
-          alert(await AsyncStorage.getItem('session'))
           setSession(await AsyncStorage.getItem('session'))
           setSessionSig(await AsyncStorage.getItem('sessionSig'))
-          setIsLogin('login')
           setTestUrl('http://192.168.3.3:3000/mobile')
         } catch (e) {
           return alert('存儲失敗')
         }
       } else { return alert('跳转失败') }
-
     } else { return alert('失败') }
   }
 
@@ -85,7 +82,6 @@ const App = () => {
         AsyncStorage.removeItem('session'),
         AsyncStorage.removeItem('sessionSig')
       ])
-      setIsLogin('logout')
       setTestUrl('http://192.168.3.3:3000/mobile/login')
     } catch (e) {
       return alert('存儲失敗')
@@ -95,14 +91,15 @@ const App = () => {
   return (
     <>
       {
-        isLogin === 'logout' && (
+        (!session && !sessionSig) && (
           <View style={styles.container}>
+            {alert(1)}
             <WebView
               source={{ uri: testUrl }}
               style={{ marginTop: 20 }}
               onMessage={(event) => {
-                let data = JSON.parse(event.nativeEvent.data)
-                let login = data['login']
+                const data = JSON.parse(event.nativeEvent.data)
+                const login = data.login
                 if (login === 'google') {
                   signInWithGoogle()
                 } else {
@@ -114,10 +111,10 @@ const App = () => {
         )
       }
 
-
       {
-        isLogin === 'login' && (
+        (!isLoading && !!session && !!sessionSig) && (
           <View style={styles.container}>
+            {alert(JSON.stringify(session))}
             <WebView
               injectedJavaScript={`
                 window.session = '${session}';
@@ -127,8 +124,8 @@ const App = () => {
               style={{ marginTop: 20 }}
               source={{ uri: testUrl }}
               onMessage={(event) => {
-                let data = JSON.parse(event.nativeEvent.data)
-                let login = data['login']
+                const data = JSON.parse(event.nativeEvent.data)
+                const login = data.login
                 if (login === 'google') {
                   signInWithGoogle()
                 } else {
