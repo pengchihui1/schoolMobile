@@ -86,7 +86,7 @@ const App = () => {
       }
     } else {
       setIsLoading(false)
-      eturn alert('失败')
+      return alert('失败')
     }
   }
 
@@ -103,49 +103,48 @@ const App = () => {
   }
 
   return (
-    <>
-      <View style={styles.container}>
+    <View style={styles.container}>
 
-        {isLoading && (<ActivityIndicator />)}
+      {isLoading && (<ActivityIndicator />)}
 
-        {(!isLoading && !session && !sessionSig) && (
+      {(!isLoading && !session && !sessionSig) && (
 
-          <WebView
-            source={{ uri: testUrl }}
-            style={{ marginTop: 20 }}
-            onMessage={(event) => {
-              const data = JSON.parse(event.nativeEvent.data)
-              const login = data.login
-              if (login === 'google') {
-                signInWithGoogle()
-              } else {
-                logoutWithGoogle()
-              }
-            }}
-          />
-        )}
+        <WebView
+          source={{ uri: testUrl }}
+          style={{ marginTop: 20 }}
+          onMessage={(event) => {
+            const data = JSON.parse(event.nativeEvent.data)
+            const login = data.login
+            if (login === 'google') {
+              signInWithGoogle()
+            } else {
+              logoutWithGoogle()
+            }
+          }}
+        />
+      )}
 
-        {(!isLoading && !isLogin && !!session && !!sessionSig) && (
-          <WebView
-            injectedJavaScript={`
+      {(!isLoading && !isLogin && !!session && !!sessionSig) && (
+        <WebView
+          injectedJavaScript={`
               window.session = '${session}';
               window.sessionSig = '${sessionSig}';
               true;
               `}
-            style={{ marginTop: 20 }}
-            source={{ uri: testUrl }}
-            onMessage={(event) => {
-              const data = JSON.parse(event.nativeEvent.data)
-              const login = data.login
-              if (login === 'google') {
-                signInWithGoogle()
-              } else {
-                logoutWithGoogle()
-              }
-            }}
-          />
-        )}
-        {/* {
+          style={{ marginTop: 20 }}
+          source={{ uri: testUrl }}
+          onMessage={(event) => {
+            const data = JSON.parse(event.nativeEvent.data)
+            const login = data.login
+            if (login === 'google') {
+              signInWithGoogle()
+            } else {
+              logoutWithGoogle()
+            }
+          }}
+        />
+      )}
+      {/* {
         isLogin === 'callback' && (
           <View style={styles.container}>
             <WebView
@@ -168,15 +167,15 @@ const App = () => {
           </View>
         )
       } */}
-    </>
+    </View>
   )
 }
 
 export default App
 
 const styles = StyleSheet.create({
-        container: {
-        height: '100%'
+  container: {
+    height: '100%',
     backgroundColor: '#fff',
     // alignItems: 'center',
     justifyContent: 'center',
