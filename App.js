@@ -1,6 +1,6 @@
 // import { StatusBar } from 'expo-status-bar'
 import React, { useState, useEffect } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import AsyncStorage from '@react-native-community/async-storage'
 import { WebView } from 'react-native-webview'
 
@@ -16,10 +16,12 @@ const App = () => {
   // alert(AsyncStorage.getItem('session'))
   const [session, setSession] = useState(null)
   const [sessionSig, setSessionSig] = useState(null)
+  const [isLogin, setLogin] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const getData = async () => {
+      setIsLoading(true)
       try {
         const sessions = await AsyncStorage.getItem('session')
         const sessionSigs = await AsyncStorage.getItem('sessionSig')
@@ -27,27 +29,31 @@ const App = () => {
         if (!!sessions && !!sessionSigs) {
           setSession(sessions)
           setSessionSig(sessionSigs)
-          setIsLoading(false)
+          setLogin(false)
 
-          setTestUrl('http://192.168.3.3:3000/mobile')
+          setTestUrl('https://school-next.macau.school/school/mobile')
+          setIsLoading(false)
         } else {
-          setTestUrl('http://192.168.3.3:3000/mobile/login')
+          setTestUrl('https://school-next.macau.school/school/mobile/login')
+          setIsLoading(false)
         }
       } catch (e) {
         alert('錯誤')
-        return setTestUrl('http://192.168.3.3:3000/mobile/login')
+        setIsLoading(false)
+        return setTestUrl('https://school-next.macau.school/school/mobile/login')
       }
     }
     getData()
   }, [])
 
   const signInWithGoogle = async () => {
+    setIsLoading(true)
     const { type, accessToken, user } = await Google.logInAsync({
       androidClientId: ANDROID_CLIENT_ID
     })
     if (type === 'success') {
       alert('user' + user)
-      const u = await fetch('http://192.168.3.3:3000/api/mobile/auth/mobile-login', {
+      const u = await fetch('https://school-next.macau.school/api/mobile/auth/mobile-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
@@ -68,12 +74,20 @@ const App = () => {
           ])
           setSession(await AsyncStorage.getItem('session'))
           setSessionSig(await AsyncStorage.getItem('sessionSig'))
-          setTestUrl('http://192.168.3.3:3000/mobile')
+          setTestUrl('https://school-next.macau.school/school/mobile')
+          setIsLoading(false)
         } catch (e) {
+          setIsLoading(false)
           return alert('存儲失敗')
         }
-      } else { return alert('跳转失败') }
-    } else { return alert('失败') }
+      } else {
+        setIsLoading(false)
+        return alert('跳转失败')
+      }
+    } else {
+      setIsLoading(false)
+      eturn alert('失败')
+    }
   }
 
   const logoutWithGoogle = async () => {
@@ -82,7 +96,7 @@ const App = () => {
         AsyncStorage.removeItem('session'),
         AsyncStorage.removeItem('sessionSig')
       ])
-      setTestUrl('http://192.168.3.3:3000/mobile/login')
+      setTestUrl('https://school-next.macau.school/school/mobile/login')
     } catch (e) {
       return alert('存儲失敗')
     }
@@ -90,54 +104,48 @@ const App = () => {
 
   return (
     <>
-      {
-        (!session && !sessionSig) && (
-          <View style={styles.container}>
-            {alert(1)}
-            <WebView
-              source={{ uri: testUrl }}
-              style={{ marginTop: 20 }}
-              onMessage={(event) => {
-                const data = JSON.parse(event.nativeEvent.data)
-                const login = data.login
-                if (login === 'google') {
-                  signInWithGoogle()
-                } else {
-                  logoutWithGoogle()
-                }
-              }}
-            />
-          </View>
-        )
-      }
+      <View style={styles.container}>
 
-      {
-        (!isLoading && !!session && !!sessionSig) && (
-          <View style={styles.container}>
-            {alert(JSON.stringify(session))}
-            <WebView
-              injectedJavaScript={`
-                window.session = '${session}';
-                window.sessionSig = '${sessionSig}';
-                true;
+        {isLoading && (<ActivityIndicator />)}
+
+        {(!isLoading && !session && !sessionSig) && (
+
+          <WebView
+            source={{ uri: testUrl }}
+            style={{ marginTop: 20 }}
+            onMessage={(event) => {
+              const data = JSON.parse(event.nativeEvent.data)
+              const login = data.login
+              if (login === 'google') {
+                signInWithGoogle()
+              } else {
+                logoutWithGoogle()
+              }
+            }}
+          />
+        )}
+
+        {(!isLoading && !isLogin && !!session && !!sessionSig) && (
+          <WebView
+            injectedJavaScript={`
+              window.session = '${session}';
+              window.sessionSig = '${sessionSig}';
+              true;
               `}
-              style={{ marginTop: 20 }}
-              source={{ uri: testUrl }}
-              onMessage={(event) => {
-                const data = JSON.parse(event.nativeEvent.data)
-                const login = data.login
-                if (login === 'google') {
-                  signInWithGoogle()
-                } else {
-                  logoutWithGoogle()
-                }
-              }}
-            />
-          </View>
-        )
-      }
-
-      {/* {
+            style={{ marginTop: 20 }}
+            source={{ uri: testUrl }}
+            onMessage={(event) => {
+              const data = JSON.parse(event.nativeEvent.data)
+              const login = data.login
+              if (login === 'google') {
+                signInWithGoogle()
+              } else {
+                logoutWithGoogle()
+              }
+            }}
+          />
+        )}
+        {/* {
         isLogin === 'callback' && (
           <View style={styles.container}>
             <WebView
@@ -167,10 +175,10 @@ const App = () => {
 export default App
 
 const styles = StyleSheet.create({
-  container: {
-    height: '100%'
-    // backgroundColor: '#fff',
+        container: {
+        height: '100%'
+    backgroundColor: '#fff',
     // alignItems: 'center',
-    // justifyContent: 'center',
+    justifyContent: 'center',
   }
 })
