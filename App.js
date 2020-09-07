@@ -1,5 +1,4 @@
-// import { StatusBar } from 'expo-status-bar'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import AsyncStorage from '@react-native-community/async-storage'
 import { WebView } from 'react-native-webview'
@@ -11,93 +10,87 @@ import * as Google from 'expo-google-app-auth'
 const ANDROID_CLIENT_ID = '395723880686-keb4n5r09p65qjobutf9i1e8p4dehg6i.apps.googleusercontent.com'
 
 const App = () => {
-  const [testUrl, setTestUrl] = useState('http://192.168.3.3:3000/mobile/login')
-  // const [isLogin, setIsLogin] = useState('logout')
-  // alert(AsyncStorage.getItem('session'))
-  const [session, setSession] = useState(null)
-  const [sessionSig, setSessionSig] = useState(null)
-  const [isLogin, setLogin] = useState(true)
-  const [isLoading, setIsLoading] = useState(true)
-
+  const [userSession, setUserSession] = useState(null)
+  const [isStatus, setStatus] = useState('loading')
+  const ref = useRef(null)
   useEffect(() => {
     const getData = async () => {
-      setIsLoading(true)
+      setStatus('loading')
       try {
         const sessions = await AsyncStorage.getItem('session')
         const sessionSigs = await AsyncStorage.getItem('sessionSig')
 
         if (!!sessions && !!sessionSigs) {
-          setSession(sessions)
-          setSessionSig(sessionSigs)
-          setLogin(false)
-
-          setTestUrl('https://school-next.macau.school/school/mobile')
-          setIsLoading(false)
+          setUserSession({
+            session: sessions,
+            sessionSig: sessionSigs
+          })
+          setStatus('login')
         } else {
-          setTestUrl('https://school-next.macau.school/school/mobile/login')
-          setIsLoading(false)
+          setStatus('logout')
         }
       } catch (e) {
         alert('錯誤')
-        setIsLoading(false)
-        return setTestUrl('https://school-next.macau.school/school/mobile/login')
+        return setStatus('logout')
       }
     }
     getData()
   }, [])
 
   const signInWithGoogle = async () => {
-    setIsLoading(true)
+    setStatus('loading')
     const { type, accessToken, user } = await Google.logInAsync({
       androidClientId: ANDROID_CLIENT_ID
     })
-    if (type === 'success') {
-      alert('user' + user)
-      const u = await fetch('https://school-next.macau.school/api/mobile/auth/mobile-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          {
-            user: user,
-            accessToken: accessToken
-          }
-        )
-      })
-        .then((response) => response.json())
-      if (u) {
-        try {
-          await Promise.all([
-            // AsyncStorage.setItem('session', JSON.stringify(u.session)),
-            // AsyncStorage.setItem('sessionSig', JSON.stringify(u.sessionSig))
-            AsyncStorage.setItem('session', u.session),
-            AsyncStorage.setItem('sessionSig', u.sessionSig)
-          ])
-          setSession(await AsyncStorage.getItem('session'))
-          setSessionSig(await AsyncStorage.getItem('sessionSig'))
-          setTestUrl('https://school-next.macau.school/school/mobile')
-          setIsLoading(false)
-        } catch (e) {
-          setIsLoading(false)
-          return alert('存儲失敗')
-        }
-      } else {
-        setIsLoading(false)
-        return alert('跳转失败')
-      }
-    } else {
-      setIsLoading(false)
+
+    if (type !== 'success') {
+      setStatus('logout')
       return alert('失败')
+    }
+
+    const u = await fetch('http://192.168.3.3:3000/api/mobile/auth/mobile-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        {
+          user: user,
+          accessToken: accessToken
+        }
+      )
+    })
+      .then((response) => response.json())
+
+    if (!u) {
+      return setStatus('logout')
+    }
+
+
+    try {
+      await Promise.all([
+        AsyncStorage.setItem('session', u.session),
+        AsyncStorage.setItem('sessionSig', u.sessionSig)
+      ])
+      setUserSession({
+        session: await AsyncStorage.getItem('session'),
+        sessionSig: await AsyncStorage.getItem('sessionSig')
+      })
+      setStatus('login')
+    } catch (e) {
+      return setStatus('logout')
     }
   }
 
   const logoutWithGoogle = async () => {
+    setStatus('loading')
     try {
       await Promise.all([
         AsyncStorage.removeItem('session'),
         AsyncStorage.removeItem('sessionSig')
       ])
-      setTestUrl('https://school-next.macau.school/school/mobile/login')
+      setUserSession(null)
+      setStatus('logout')
     } catch (e) {
+      setStatus('logout')
       return alert('存儲失敗')
     }
   }
@@ -105,12 +98,12 @@ const App = () => {
   return (
     <View style={styles.container}>
 
-      {isLoading && (<ActivityIndicator />)}
+      {isStatus === 'loading' && (<ActivityIndicator size='large' />)}
 
-      {(!isLoading && !session && !sessionSig) && (
+      {(isStatus === 'logout' && !userSession) && (
 
         <WebView
-          source={{ uri: testUrl }}
+          source={{ uri: 'http://192.168.3.3:3000/school/mobile/login' }}
           style={{ marginTop: 20 }}
           onMessage={(event) => {
             const data = JSON.parse(event.nativeEvent.data)
@@ -124,15 +117,18 @@ const App = () => {
         />
       )}
 
-      {(!isLoading && !isLogin && !!session && !!sessionSig) && (
+      {(isStatus === 'login' && !!userSession) && (
         <WebView
-          injectedJavaScript={`
-              window.session = '${session}';
-              window.sessionSig = '${sessionSig}';
-              true;
-              `}
+          ref={ref}
+          source={{ uri: 'http://192.168.3.3:3000/school/mobile' }}
+          onLoadStart={() => (
+            ref.current.injectJavaScript(`
+            window.session = '${userSession.session}';
+            window.sessionSig = '${userSession.sessionSig}';
+            true;
+            `)
+          )}
           style={{ marginTop: 20 }}
-          source={{ uri: testUrl }}
           onMessage={(event) => {
             const data = JSON.parse(event.nativeEvent.data)
             const login = data.login
