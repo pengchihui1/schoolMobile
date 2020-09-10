@@ -4,9 +4,9 @@
     "slug": "schoolMobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/playAndthunder.png",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/vivi.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -23,7 +23,7 @@
       "package": "school_next.macau.school"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/ae03a117c15d2d86_600x600.png"
     }
   }
 }

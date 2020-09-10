@@ -14,8 +14,8 @@ const App = () => {
   const [isStatus, setStatus] = useState('loading')
   const ref = useRef(null)
   useEffect(() => {
+    setStatus('loading')
     const getData = async () => {
-      setStatus('loading')
       try {
         const sessions = await AsyncStorage.getItem('session')
         const sessionSigs = await AsyncStorage.getItem('sessionSig')
@@ -38,6 +38,7 @@ const App = () => {
   }, [])
 
   const signInWithGoogle = async () => {
+    // alert(userSession.session)
     setStatus('loading')
     const { type, accessToken, user } = await Google.logInAsync({
       androidClientId: ANDROID_CLIENT_ID
@@ -95,16 +96,15 @@ const App = () => {
     }
   }
 
+
   return (
     <View style={styles.container}>
 
       {isStatus === 'loading' && (<ActivityIndicator size='large' />)}
 
       {(isStatus === 'logout' && !userSession) && (
-
         <WebView
           source={{ uri: 'http://192.168.3.3:3000/school/mobile/login' }}
-          style={{ marginTop: 20 }}
           onMessage={(event) => {
             const data = JSON.parse(event.nativeEvent.data)
             const login = data.login
@@ -128,7 +128,6 @@ const App = () => {
             true;
             `)
           )}
-          style={{ marginTop: 20 }}
           onMessage={(event) => {
             const data = JSON.parse(event.nativeEvent.data)
             const login = data.login
@@ -140,29 +139,6 @@ const App = () => {
           }}
         />
       )}
-      {/* {
-        isLogin === 'callback' && (
-          <View style={styles.container}>
-            <WebView
-              injectedJavaScript={`
-                window.session = '${session}';
-                window.sessionSig = '${sessionSig}';
-                true;
-              `}
-              source={{ uri: testUrl }}
-              onMessage={(event) => {
-                let data = JSON.parse(event.nativeEvent.data)
-                let login = data['login']
-                if (login === 'google') {
-                  signInWithGoogle()
-                } else {
-                  logoutWithGoogle()
-                }
-              }}
-            />
-          </View>
-        )
-      } */}
     </View>
   )
 }
@@ -173,7 +149,6 @@ const styles = StyleSheet.create({
   container: {
     height: '100%',
     backgroundColor: '#fff',
-    // alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   }
 })
