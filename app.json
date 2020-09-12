@@ -4,7 +4,7 @@
     "slug": "schoolMobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/playAndthunder.png",
+    "icon": "./assets/notification.png",
     "splash": {
       "image": "./assets/vivi.png",
       "resizeMode": "contain",

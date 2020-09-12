@@ -1,145 +1,144 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
-import AsyncStorage from '@react-native-community/async-storage'
+import { SafeAreaView, ActivityIndicator, StyleSheet, Text, View, Alert } from 'react-native'
+import NetInfo, { useNetInfo } from '@react-native-community/netinfo'
 import { WebView } from 'react-native-webview'
 
-import * as Google from 'expo-google-app-auth'
+import logoutWithGoogle from './lib/logoutWithGoogle'
+import signInWithGoogle from './lib/signInWithGoogle'
+import getAsyncStorage from './lib/getAsyncStorage'
 
-// const IOS_CLIENT_ID = 'your-ios-client-id'
-
-const ANDROID_CLIENT_ID = '395723880686-keb4n5r09p65qjobutf9i1e8p4dehg6i.apps.googleusercontent.com'
+import url from './url'
 
 const App = () => {
+  const ref = useRef(null)
+  const netInfo = useNetInfo()
   const [userSession, setUserSession] = useState(null)
   const [isStatus, setStatus] = useState('loading')
-  const ref = useRef(null)
+  const [isNetInfo, setIsNetInfo] = useState(null)
+
   useEffect(() => {
     setStatus('loading')
     const getData = async () => {
-      try {
-        const sessions = await AsyncStorage.getItem('session')
-        const sessionSigs = await AsyncStorage.getItem('sessionSig')
-
-        if (!!sessions && !!sessionSigs) {
-          setUserSession({
-            session: sessions,
-            sessionSig: sessionSigs
-          })
-          setStatus('login')
-        } else {
-          setStatus('logout')
-        }
-      } catch (e) {
-        alert('錯誤')
-        return setStatus('logout')
+      const data = await getAsyncStorage()
+      let result = 'logout'
+      if (!!data.session && !!data.sessionSig) {
+        setUserSession({ ...data })
+        result = 'login'
+      } else {
+        result = 'logout'
       }
+
+      setStatus(result)
     }
+
     getData()
   }, [])
 
-  const signInWithGoogle = async () => {
-    // alert(userSession.session)
+  useEffect(() => {
+    const networkState = netInfo.isConnected
+    setIsNetInfo(networkState)
+  }, [netInfo])
+
+  // 登入
+  const signIn = async () => {
     setStatus('loading')
-    const { type, accessToken, user } = await Google.logInAsync({
-      androidClientId: ANDROID_CLIENT_ID
-    })
-
-    if (type !== 'success') {
-      setStatus('logout')
-      return alert('失败')
+    const signInData = await signInWithGoogle()
+    let result = 'logout'
+    if (signInData) {
+      setUserSession(signInData)
+      result = 'login'
+    } else {
+      result = 'logout'
     }
-
-    const u = await fetch('http://192.168.3.3:3000/api/mobile/auth/mobile-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(
-        {
-          user: user,
-          accessToken: accessToken
-        }
-      )
-    })
-      .then((response) => response.json())
-
-    if (!u) {
-      return setStatus('logout')
-    }
-
-
-    try {
-      await Promise.all([
-        AsyncStorage.setItem('session', u.session),
-        AsyncStorage.setItem('sessionSig', u.sessionSig)
-      ])
-      setUserSession({
-        session: await AsyncStorage.getItem('session'),
-        sessionSig: await AsyncStorage.getItem('sessionSig')
-      })
-      setStatus('login')
-    } catch (e) {
-      return setStatus('logout')
-    }
+    setStatus(result)
   }
 
-  const logoutWithGoogle = async () => {
+  // 登出
+  const logout = async () => {
     setStatus('loading')
-    try {
-      await Promise.all([
-        AsyncStorage.removeItem('session'),
-        AsyncStorage.removeItem('sessionSig')
-      ])
-      setUserSession(null)
-      setStatus('logout')
-    } catch (e) {
-      setStatus('logout')
-      return alert('存儲失敗')
-    }
-  }
+    const state = await logoutWithGoogle()
+    if (state) { setUserSession(null) }
 
+    setStatus('logout')
+  }
 
   return (
-    <View style={styles.container}>
+    <>
+      <View style={styles.container}>
+        {!isNetInfo && (<NetworkTip />)}
+        {isNetInfo && (
+          <>
+            {isStatus === 'loading' && (<ActivityIndicator size='large' />)}
 
-      {isStatus === 'loading' && (<ActivityIndicator size='large' />)}
+            {(isStatus === 'logout' && !userSession) && (
+              <WebView
+                source={{ uri: url.login }}
+                onMessage={(event) => {
+                  const data = JSON.parse(event.nativeEvent.data)
+                  const login = data.login
+                  login === 'google' ? signIn() : logout()
+                }}
+                onContentProcessDidTerminate={syntheticEvent => {
+                  // 重新启动网络时会刷新
+                  this.refs.webview.reload();
+                }}
+              />
+            )}
 
-      {(isStatus === 'logout' && !userSession) && (
-        <WebView
-          source={{ uri: 'http://192.168.3.3:3000/school/mobile/login' }}
-          onMessage={(event) => {
-            const data = JSON.parse(event.nativeEvent.data)
-            const login = data.login
-            if (login === 'google') {
-              signInWithGoogle()
-            } else {
-              logoutWithGoogle()
-            }
-          }}
-        />
-      )}
+            {(isStatus === 'login' && !!userSession) && (
+              <WebView
+                ref={ref}
+                source={{ uri: url.home }}
+                onLoadStart={() => (
+                  ref.current.injectJavaScript(`
+                      window.session = '${userSession.session}';
+                      window.sessionSig = '${userSession.sessionSig}';
+                      window.test = ${useNetInfo};
+                      true;
+                    `)
+                )}
+                onContentProcessDidTerminate={syntheticEvent => {
+                  // 重新启动网络时会刷新
+                  this.refs.webview.reload();
+                }}
+                onMessage={(event) => {
+                  const data = JSON.parse(event.nativeEvent.data)
+                  const login = data.login
+                  login === 'google' ? signIn() : logout()
+                }}
+              />
+            )}
+          </>
+        )}
+      </View>
+    </>
+  )
+}
 
-      {(isStatus === 'login' && !!userSession) && (
-        <WebView
-          ref={ref}
-          source={{ uri: 'http://192.168.3.3:3000/school/mobile' }}
-          onLoadStart={() => (
-            ref.current.injectJavaScript(`
-            window.session = '${userSession.session}';
-            window.sessionSig = '${userSession.sessionSig}';
-            true;
-            `)
-          )}
-          onMessage={(event) => {
-            const data = JSON.parse(event.nativeEvent.data)
-            const login = data.login
-            if (login === 'google') {
-              signInWithGoogle()
-            } else {
-              logoutWithGoogle()
-            }
-          }}
-        />
-      )}
+const NetworkTip = () => {
+  return (
+    // <SafeAreaView>
+    //   <Text
+    //     style={styles.text}
+    //   >
+    //     No Internet Connection
+    //   </Text>
+    // </SafeAreaView>
+
+    <View style={styles.container2}>
+      <Text
+        style={{
+          color: 'white',
+          padding: 30,
+          textAlign: 'center',
+          letterSpacing: 2,
+          fontSize: 16
+        }}
+      >
+        没有网，请重新连接
+      </Text>
     </View>
+
   )
 }
 
@@ -147,8 +146,40 @@ export default App
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     height: '100%',
     backgroundColor: '#fff',
     justifyContent: 'center'
+  },
+  container2: {
+    flex: 2,
+    height: '100%',
+    zIndex: 212123,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)'
+  },
+  networkContainer: {
+    position: 'relative',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
+    height: '90%',
+    width: '100%',
+    zIndex: 1222,
+    backgroundColor: 'rgba(0,0,0,0.1)'
+  },
+  text: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    color: 'white',
+    padding: 30,
+    textAlign: 'center',
+    letterSpacing: 2,
+    fontSize: 16
   }
 })
