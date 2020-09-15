@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/notification.png",
     "splash": {
-      "image": "./assets/vivi.png",
+      "image": "./assets/macauschool.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -20,7 +20,8 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "school_next.macau.school"
+      "package": "school_next.macau.school",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/ae03a117c15d2d86_600x600.png"

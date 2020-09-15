@@ -27,7 +27,6 @@ const App = () => {
       } else {
         result = 'logout'
       }
-
       setStatus(result)
     }
 
